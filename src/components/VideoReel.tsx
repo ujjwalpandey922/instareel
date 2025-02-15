@@ -1,6 +1,5 @@
-
 import React, { useRef, useEffect, useState } from "react";
-import { Heart, Share2, Volume2, VolumeX } from "lucide-react";
+import { Heart, Share2, Volume2, VolumeX, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -17,16 +16,18 @@ interface VideoReelProps {
   isVisible: boolean;
 }
 
-const VideoReel: React.FC<VideoReelProps> = ({ videoUrl, products, isVisible }) => {
+const VideoReel: React.FC<VideoReelProps> = ({
+  videoUrl,
+  products,
+  isVisible,
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [progress, setProgress] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
-  const [showControls, setShowControls] = useState(true);
   const { toast } = useToast();
 
-  // Updated playback logic
   useEffect(() => {
     if (isVisible && videoRef.current) {
       const playVideo = async () => {
@@ -35,16 +36,13 @@ const VideoReel: React.FC<VideoReelProps> = ({ videoUrl, products, isVisible }) 
           setIsPlaying(true);
         } catch (error) {
           console.log("Playback error:", error);
-          // If autoplay fails, ensure the video is muted and try again
-          if (videoRef.current) {
-            videoRef.current.muted = true;
-            setIsMuted(true);
-            try {
-              await videoRef.current.play();
-              setIsPlaying(true);
-            } catch (retryError) {
-              console.log("Retry failed:", retryError);
-            }
+          videoRef.current.muted = true;
+          setIsMuted(true);
+          try {
+            await videoRef.current.play();
+            setIsPlaying(true);
+          } catch (retryError) {
+            console.log("Retry failed:", retryError);
           }
         }
       };
@@ -54,20 +52,7 @@ const VideoReel: React.FC<VideoReelProps> = ({ videoUrl, products, isVisible }) 
       videoRef.current.pause();
       setIsPlaying(false);
     }
-
-    // Preload the video
-    if (videoRef.current) {
-      videoRef.current.preload = "auto";
-    }
   }, [isVisible]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowControls(false);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [showControls]);
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -77,7 +62,6 @@ const VideoReel: React.FC<VideoReelProps> = ({ videoUrl, products, isVisible }) 
         videoRef.current.play();
       }
       setIsPlaying(!isPlaying);
-      setShowControls(true);
     }
   };
 
@@ -85,14 +69,24 @@ const VideoReel: React.FC<VideoReelProps> = ({ videoUrl, products, isVisible }) 
     if (videoRef.current) {
       videoRef.current.muted = !isMuted;
       setIsMuted(!isMuted);
-      setShowControls(true);
     }
   };
 
   const handleProgress = () => {
     if (videoRef.current) {
-      const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+      const progress =
+        (videoRef.current.currentTime / videoRef.current.duration) * 100;
       setProgress(progress);
+    }
+  };
+
+  const seekVideo = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (videoRef.current) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const newTime = (clickX / rect.width) * videoRef.current.duration;
+      videoRef.current.currentTime = newTime;
+      setProgress((newTime / videoRef.current.duration) * 100);
     }
   };
 
@@ -112,7 +106,7 @@ const VideoReel: React.FC<VideoReelProps> = ({ videoUrl, products, isVisible }) 
   };
 
   return (
-    <div className="relative h-screen w-full bg-black overflow-hidden">
+    <div className="relative h-screen w-full bg-black overflow-hidden flex items-center justify-center">
       <video
         ref={videoRef}
         className="h-full w-full object-cover"
@@ -121,14 +115,16 @@ const VideoReel: React.FC<VideoReelProps> = ({ videoUrl, products, isVisible }) 
         muted={isMuted}
         playsInline
         preload="auto"
-        onClick={() => setShowControls(true)}
         onTimeUpdate={handleProgress}
       />
 
-      {/* Controls overlay - now always visible */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/20">
-        {/* Progress bar */}
-        <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-800/50">
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/20 flex flex-col justify-between p-4 sm:p-6 md:p-8">
+        {/* Clickable progress bar */}
+        <div
+          className="absolute bottom-0 left-0 w-full h-2 bg-gray-800/50 cursor-pointer"
+          onClick={seekVideo}
+        >
           <div
             className="h-full bg-white transition-all duration-100"
             style={{ width: `${progress}%` }}
@@ -136,13 +132,16 @@ const VideoReel: React.FC<VideoReelProps> = ({ videoUrl, products, isVisible }) 
         </div>
 
         {/* Controls */}
-        <div className="absolute bottom-8 right-4 flex flex-col items-end gap-4">
+        <div className="absolute bottom-8 right-4 flex flex-col items-end gap-4 sm:gap-3 md:gap-4">
           <button
             onClick={toggleLike}
             className="p-3 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition transform hover:scale-110"
           >
             <Heart
-              className={cn("w-6 h-6", isLiked ? "text-red-500 fill-red-500" : "text-white")}
+              className={cn(
+                "w-6 h-6",
+                isLiked ? "text-red-500 fill-red-500" : "text-white"
+              )}
             />
           </button>
 
@@ -165,29 +164,29 @@ const VideoReel: React.FC<VideoReelProps> = ({ videoUrl, products, isVisible }) 
           </button>
         </div>
 
-        {/* Product tags */}
-        <div className="absolute top-4 left-4 right-4 flex flex-wrap gap-2">
+        {/* Product Tags */}
+        <div className="absolute top-4 left-4 right-4 flex flex-wrap gap-2 sm:gap-1 md:gap-2">
           {products.map((product) => (
             <div
               key={product.id}
-              className="px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm 
-                       text-sm font-medium shadow-lg animate-fade-in cursor-pointer
-                       hover:bg-white hover:scale-105 transition-all"
+              className="px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm text-sm font-medium shadow-lg animate-fade-in cursor-pointer hover:bg-white hover:scale-105 transition-all"
             >
               {product.name} - ${product.price}
             </div>
           ))}
         </div>
 
-        {/* Play/Pause overlay */}
-        <div className="absolute inset-0 flex items-center justify-center">
+        {/* Play/Pause Overlay */}
+        <div className="absolute top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] sm:p-3 md:p-4">
           <button
             onClick={togglePlay}
             className="p-4 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition transform hover:scale-110 opacity-0 hover:opacity-100"
           >
-            <span className="text-white text-lg font-medium">
-              {isPlaying ? "Pause" : "Play"}
-            </span>
+            {isPlaying ? (
+              <Pause className="w-10 h-10 text-white" />
+            ) : (
+              <Play className="w-10 h-10 text-white" />
+            )}
           </button>
         </div>
       </div>
